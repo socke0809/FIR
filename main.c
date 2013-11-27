@@ -1,22 +1,30 @@
 #include <math.h>
+#include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #define BUFFER_SIZE 9
 #define SQUARE_BUFFER_SIZE 12
 
+const float coeff_lp[BUFFER_SIZE] = {0.001528*2.5772, 
+0.015556*2.5772, 
+0.046380*2.5772, 
+0.081717*2.5772, 
+0.097656*2.5772, 
+0.081717*2.5772, 
+0.046380*2.5772, 
+0.015556*2.5772,
+0.001528*2.5772};
+
 float sampleBuffer[BUFFER_SIZE];
-float squareBUFFER[SQUARE_BUFFER_SIZE];
-float coeffBuffer[BUFFER_SIZE] = {0.001528, 
-0.015556, 
-0.046380, 
-0.081717, 
-0.097656, 
-0.081717, 
-0.046380, 
-0.015556, 0.001528};
-float sum = 0;
+
+struct Filter{ 
+    float squareBuffer[SQUARE_BUFFER_SIZE];
+    float coeffBuffer[BUFFER_SIZE];
+    float sum;
+};
 
 
-void fillSampleBuffer(float v){
+void fillBuffer(float v){
 	
 	for(int i = BUFFER_SIZE-1; i>0; i--){
 		sampleBuffer[i] = sampleBuffer[i-1];
@@ -26,39 +34,50 @@ void fillSampleBuffer(float v){
 
 }
 
-float rms(float v){
-	sum = sum + v - squareBuffer[SQUARE_BUFFER_SIZE -1];
+float rms(float v, struct Filter* filter){
+	filter->sum = filter->sum + v*v - filter->squareBuffer[SQUARE_BUFFER_SIZE -1];
 	
 	for(int i = SQUARE_BUFFER_SIZE-1; i>0; i--){
-		squareBuffer[i] = squareBuffer[i+1];
+		filter->squareBuffer[i] = filter->squareBuffer[i-1];
 	}
 
-	squareBuffer[0] = v;
+	filter->squareBuffer[0] = v*v;
 	
-	return sqrt(sum/SQUARE_BUFFER_SIZE);
+	return sqrt(filter->sum/SQUARE_BUFFER_SIZE);
 
 }
 
-float fir(){
+float fir(float filter[]){
 	float res = 0;
 	for(int i = 0; i<BUFFER_SIZE; i++){
-		res = res + sampleBuffer[i]*2.5772*coeffBuffer[i];
+		res = res + sampleBuffer[i]*filter[i];
 	}
 	
 	return res;
 }
 
 float generateSample(float x){
-	return sin(x)+sin(15*x)+sin(10*x);
+	return 2*sin(x)+sin(15*x)+sin(10*x);
 }
 	
 	
 
-int main(){
-	for(int i = 0; i<100; i++){
+int main(void){
+    int32_t sample;
+    char sampleB[5];
+    FILE * file;
+    file = fopen("samples.raw","r"); 
 
-		fillBuffer(generateSample(i/4.0f));
-		printf("%i\t%.3f\t%.3f\t%.3f\n", i, generateSample(i/4.0f), fir(), rms(fir()*fir()));
+    struct Filter lowPass;
+    memcpy(lowPass.coeffBuffer, coeff_lp, BUFFER_SIZE*sizeof(float));
+    memset(lowPass.squareBuffer, 0, SQUARE_BUFFER_SIZE*sizeof(float));
+
+	for(int i = 0; i<40000; i++){
+        float a = fir(lowPass.coeffBuffer);
+        fgets(sampleB, 4, file);
+        sample = sampleB[3] | sampleB[2]<<8 | sampleB[1]<<16 | sampleB[0]<<24;
+		fillBuffer((float)sample);
+		printf("%i\t%i\t%.3f\t%.3f\n", i, sample, a, rms(a,&lowPass));
 	}
 	
 	return 0;
