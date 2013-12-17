@@ -1,7 +1,9 @@
 #include <math.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#define PI 3.1415
 #define BUFFER_SIZE 51
 #define SQUARE_BUFFER_SIZE 128
 
@@ -63,13 +65,45 @@ float fir(float filter[]){
 }
 
 float generateSample(float x){
-	return 2*sin(x)+sin(15*x)+sin(10*x);
+	float y = (PI*x);
+	while(y>0){
+		y-=2*PI;
+	}
+	return cos(y);
 }
 	
-	
+
+float* dft(float values[]){
+	float resRE[512];
+	float resIM[512];
+	float *resAbs = (float*)malloc(sizeof(float)*512);
+	if(resAbs==NULL){
+		printf("ERROR");
+		return NULL;
+	}
+	for(int i = 0; i<512; i++){
+		resRE[i] = 0;
+		resIM[i] = 0;
+	}
+
+	for(int k = 0; k< 512; k++){
+		for(int j = 0; j< 512; j++){
+		resRE[k] = resRE[k]+values[j]*cos(2*PI*j*k/512);
+		resIM[k] = resIM[k]+values[j]*sin(-2*PI*j*k/512);
+		}
+	}
+
+	for(int i = 0; i<512; i++){
+		resAbs[i] = resRE[i]*resRE[i]+resIM[i]*resIM[i];
+	}
+
+	return resAbs;
+		
+
+}
+		
 
 int main(void){
-    int16_t sample;
     FILE * file;
     file = fopen("samples.raw","rb"); 
 
@@ -77,7 +111,7 @@ int main(void){
     memcpy(lowPass.coeffBuffer, coeff_lp, BUFFER_SIZE*sizeof(float));
     memset(lowPass.squareBuffer, 0, SQUARE_BUFFER_SIZE*sizeof(float));
 
-	for(int i = 0; i<160; i++){
+	/*for(int i = 0; i<160; i++){
         float a = fir(lowPass.coeffBuffer);
         for(int j=0; j<10; j++){
             fread(&sample, sizeof(int16_t), 1, file);
@@ -86,6 +120,20 @@ int main(void){
 		fillBuffer(samplef);
 		printf("%i\t%.3f\t%.3f\t%.3f\n", i, samplef, a, rms(a,&lowPass));
 	}
+	*/
+
+	float values[512];
+	for(int j=0; j<512; j++){
+	    //int16_t sample;
+            //fread(&sample, sizeof(int16_t), 1, file);
+	    //values[j] = (float)sample;
+	    values[j] = generateSample((float)j);
+        }
+	float *res = dft(values);
+	for(int i = 0; i<512; i++){
+		printf("%i\t%.3f\t%.3f\n", i, values[i], res[i]);
+	}
+	free(res);
 	
 	return 0;
 }
