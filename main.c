@@ -69,9 +69,39 @@ float generateSample(float x){
 	while(y>0){
 		y-=2*PI;
 	}
-	return cos(y);
+	return cos(y)+cos(2*y)+cos(4*y)+cos(8*y)+0.5*cos(16*y)+cos(32*y)+cos(64*y);
 }
 	
+
+float* log_dft(float values[]){
+	float resRE[512];
+	float resIM[512];
+	float *resAbs = (float*)malloc(sizeof(float)*512);
+	if(resAbs==NULL){
+		printf("ERROR");
+		return NULL;
+	}
+	for(int i = 0; i<512; i++){
+		resRE[i] = 0;
+		resIM[i] = 0;
+	}
+
+	for(int k = 0; k< 512; k++){
+		for(int j = 0; j< 512; j++){
+		    resRE[k] = resRE[k]+values[j]*cos(PI*(float)j*(pow(1.017479,k))/(pow(1.017479,256)));
+		    resIM[k] = resIM[k]-values[j]*sin(PI*(float)j*(pow(1.017479,k))/(pow(1.017479,256)));
+		}
+        //resRE[k] = (512/2)*(pow(1.0260044,k)/(pow(1.0260044,256)))*resRE[k];
+        //resIM[k] = (512/2)*(pow(1.0260044,k)/(pow(1.0260044,256)))*resIM[k];
+	}
+
+	for(int i = 0; i<512; i++){
+		resAbs[i] = sqrt(resRE[i]*resRE[i]+resIM[i]*resIM[i]);
+	}
+
+	return resAbs;
+}
+
 
 float* dft(float values[]){
 	float resRE[512];
@@ -127,11 +157,12 @@ int main(void){
 	    //int16_t sample;
             //fread(&sample, sizeof(int16_t), 1, file);
 	    //values[j] = (float)sample;
-	    values[j] = generateSample((float)j);
+	    values[j] = generateSample((float)j*PI/256.0f);
         }
+	float *res_log = log_dft(values);
 	float *res = dft(values);
-	for(int i = 0; i<512; i++){
-		printf("%i\t%.3f\t%.3f\n", i, values[i], res[i]);
+	for(int i = 0; i<256; i++){
+		printf("%i\t%.3f\t%.3f\t%.3f\n", i, values[i], res_log[i], res[i]);
 	}
 	free(res);
 	
